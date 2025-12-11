@@ -36,12 +36,20 @@ app.UseMiddleware<ValidationMiddleware>();
 // ---------------------------------------------------------------------------
 
 // GET /books - listar todos los libros
-app.MapGet("/books", async (IBookService service) =>
+app.MapGet("/books", async (
+    string? search,
+    int page,
+    int pageSize,
+    IBookService service) =>
 {
-    // Nota: aquí solo orquestamos, no hay lógica de negocio
-    var books = await service.GetAllAsync();
-    return Results.Ok(books);
+    // Valores por defecto si el cliente no los manda
+    if (page <= 0) page = 1;
+    if (pageSize <= 0) pageSize = 10;
+
+    var result = await service.GetAllAsync(search, page, pageSize);
+    return Results.Ok(result);
 });
+
 
 // GET /books/{id} - obtener un libro por id
 app.MapGet("/books/{id:guid}", async (Guid id, IBookService service) =>

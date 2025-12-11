@@ -1,4 +1,5 @@
-﻿using LibraryLite.Domain;
+﻿using LibraryLite.Application.Common;
+using LibraryLite.Domain;
 
 namespace LibraryLite.Application.Books;
 
@@ -9,10 +10,46 @@ public sealed class InMemoryBookService : IBookService
     // Colección en memoria simulando una tabla
     private readonly List<Book> _books = new();
 
-    public Task<IReadOnlyList<BookResponse>> GetAllAsync(CancellationToken cancellationToken = default)
+    public InMemoryBookService()
     {
-        // Mapear entidades de dominio a DTOs de respuesta
-        var result = _books
+        // Semilla opcional de datos para probar paginación/filtrado
+        var authorId = Guid.NewGuid();
+
+        _books.Add(new Book(Guid.NewGuid(), "The Final Empire", "ISBN-001", 2006, authorId));
+        _books.Add(new Book(Guid.NewGuid(), "The Well of Ascension", "ISBN-002", 2007, authorId));
+        _books.Add(new Book(Guid.NewGuid(), "The Hero of Ages", "ISBN-003", 2008, authorId));
+    }
+
+    public Task<PagedResult<BookResponse>> GetAllAsync(
+        string? search = null,
+        int page = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        // Aseguramos que page y pageSize tengan valores razonables
+        if (page <= 0) page = 1;
+        if (pageSize <= 0) pageSize = 10;
+        if (pageSize > 100) pageSize = 100; // límite de seguridad
+
+        // Query base
+        IEnumerable<Book> query = _books;
+
+        // Filtrado por texto (título o ISBN)
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            search = search.ToLower().Trim();
+            query = query.Where(b =>
+                b.Title.ToLower().Contains(search) ||
+                b.Isbn.ToLower().Contains(search));
+        }
+
+        var totalCount = query.Count();
+
+        // Paginación
+        var items = query
+            .OrderBy(b => b.Title) // orden básico por título
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(b => new BookResponse
             {
                 Id = b.Id,
@@ -24,7 +61,9 @@ public sealed class InMemoryBookService : IBookService
             .ToList()
             .AsReadOnly();
 
-        return Task.FromResult((IReadOnlyList<BookResponse>)result);
+        var result = new PagedResult<BookResponse>(items, totalCount, page, pageSize);
+
+        return Task.FromResult(result);
     }
 
     public Task<BookResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
