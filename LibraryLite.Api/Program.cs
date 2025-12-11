@@ -1,10 +1,12 @@
 using FluentValidation;
+using LibraryLite.Application.Authors;
 using LibraryLite.Application.Books;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Registrar servicios de aplicación
 builder.Services.AddSingleton<IBookService, InMemoryBookService>();
+builder.Services.AddSingleton<IAuthorService, InMemoryAuthorService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -74,6 +76,60 @@ app.MapPut("/books/{id:guid}", async (Guid id, UpdateBookRequest request, IValid
 
 // DELETE /books/{id} - eliminar un libro
 app.MapDelete("/books/{id:guid}", async (Guid id, IBookService service) =>
+{
+    var deleted = await service.DeleteAsync(id);
+    return deleted ? Results.NoContent() : Results.NotFound();
+});
+
+// ---------------------------------------------------------------------------
+// Endpoints para gestionar autores (Authors)
+// ---------------------------------------------------------------------------
+
+// GET /authors - listar todos los autores
+app.MapGet("/authors", async (IAuthorService service) =>
+{
+    var authors = await service.GetAllAsync();
+    return Results.Ok(authors);
+});
+
+// GET /authors/{id} - obtener un autor por id
+app.MapGet("/authors/{id:guid}", async (Guid id, IAuthorService service) =>
+{
+    var author = await service.GetByIdAsync(id);
+    return author is not null ? Results.Ok(author) : Results.NotFound();
+});
+
+// POST /authors - crear un nuevo autor
+app.MapPost("/authors", async (
+    CreateAuthorRequest request,
+    IValidator<CreateAuthorRequest> validator,
+    IAuthorService service) =>
+{
+    var validation = await validator.ValidateAsync(request);
+    if (!validation.IsValid)
+        throw new ValidationException(validation.Errors);
+
+    var created = await service.CreateAsync(request);
+    return Results.Created($"/authors/{created.Id}", created);
+});
+
+// PUT /authors/{id} - actualizar un autor
+app.MapPut("/authors/{id:guid}", async (
+    Guid id,
+    UpdateAuthorRequest request,
+    IValidator<UpdateAuthorRequest> validator,
+    IAuthorService service) =>
+{
+    var validation = await validator.ValidateAsync(request);
+    if (!validation.IsValid)
+        throw new ValidationException(validation.Errors);
+
+    var updated = await service.UpdateAsync(id, request);
+    return updated is not null ? Results.Ok(updated) : Results.NotFound();
+});
+
+// DELETE /authors/{id} - eliminar un autor
+app.MapDelete("/authors/{id:guid}", async (Guid id, IAuthorService service) =>
 {
     var deleted = await service.DeleteAsync(id);
     return deleted ? Results.NoContent() : Results.NotFound();
