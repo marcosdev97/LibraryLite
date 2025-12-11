@@ -12,7 +12,9 @@ builder.Services.AddSwaggerGen();
 // Registrar FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<CreateBookRequestValidator>();
 
+builder.Services.AddTransient<ErrorHandlingMiddleware>();
 builder.Services.AddTransient<ValidationMiddleware>();
+
 
 var app = builder.Build();
 
@@ -24,6 +26,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseMiddleware<ValidationMiddleware>();
 
 // ---------------------------------------------------------------------------
